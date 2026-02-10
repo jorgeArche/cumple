@@ -261,7 +261,7 @@ function App() {
 
       <header>
         <h1 className="main-title">IMPERDIBLE</h1>
-        <div className="subtitle-rave">30 Años de Oscilación</div>
+        <div className="subtitle-rave">30 Años de intensa inestabilidad</div>
         <div className="age-badge">GENERACIÓN '96</div>
         <div className="date-rave">
           21 FEB 11:00 ▶ 22 FEB 8:00<br />
