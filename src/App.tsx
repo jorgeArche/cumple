@@ -6,6 +6,7 @@ interface Comment {
   name: string
   text: string
   date: string
+  edited?:boolean
 }
 
 // URL del backend - cambiar según donde esté desplegado
@@ -19,6 +20,10 @@ function App() {
   const [commentSaved, setCommentSaved] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editText, setEditText] = useState('')
+
 
   useEffect(() => {
     // Cargar comentarios del backend
@@ -125,6 +130,76 @@ function App() {
     }
   }
 
+  const startEdit = (c: Comment) => {
+    if (!c.id) return
+    setEditingId(c.id)
+    setEditName(c.name)
+    setEditText(c.text)
+    setError(null)
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditName('')
+    setEditText('')
+  }
+
+  const saveEdit = async (id: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch(`${API_URL}/comments/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editName.trim(),
+          text: editText.trim(),
+        }),
+      })
+
+      if (!response.ok) throw new Error(`Error al editar (${response.status})`)
+
+      const updated = await response.json()
+
+      setComments(prev =>
+        prev.map(c => (c.id === id ? updated : c))
+      )
+      cancelEdit()
+    } catch (e) {
+      console.error(e)
+      setError('Error al editar el comentario.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const deleteComment = async (id: string) => {
+    const ok = window.confirm('¿Borrar este comentario?')
+    if (!ok) return
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch(`${API_URL}/comments/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.status !== 204) {
+        throw new Error(`Error al borrar (${response.status})`)
+      }
+
+      setComments(prev => prev.filter(c => c.id !== id))
+      if (editingId === id) cancelEdit()
+    } catch (e) {
+      console.error(e)
+      setError('Error al borrar el comentario.')
+    } finally {
+      setLoading(false)
+    }
+  }
+  
   const escapeHtml = (text: string) => {
     const div = document.createElement('div')
     div.textContent = text
@@ -347,13 +422,13 @@ function App() {
           
           <li>
             <span className="activity-title">DESAYUNO A LAS 6 AM</span>
-            Lo que encuentres tirado por ahí. Café recalentado hasta la muerte, dignidad por los suelos, y la certeza absoluta de que el lunes llamarás diciendo que estás enfermo. <span style={{ color: '#ffff00' }}>Premio al último superviviente que siga en pie.</span>
+            Lo que encuentres tirado por ahí. Café recalentado hasta la muerte, dignidad por los suelos, y la certeza absoluta de que el lunes llamarás al trabajo diciendo que estás enfermo. <span style={{ color: '#ffff00' }}>Premio al último superviviente que siga en pie.</span>
           </li>
         </ul>
       </section>
 
       <section className="pasaos-section">
-        <h2 className="pasaos-title">► CENTRO DE GUARDERÍA DE PASAOS ◄</h2>
+        <h2 className="pasaos-title">► GUARDERÍA DE PASAOS ◄</h2>
         <div className="pasaos-desc">
           Zona exclusiva para los que ya no pueden más pero no quieren irse.<br />
           Un espacio de paz (relativa) donde recuperar el alma mientras el cuerpo sigue en la pista.<br />
@@ -372,7 +447,7 @@ function App() {
           </div>
           
           <div className="pasao-card">
-            <h4>🍵 TÉ DE MIERDA</h4>
+            <h4>🍵 INFUSIONES</h4>
             <p>Infusiones que nadie pidió pero todos necesitan. Calma la ansiedad del speed con tila o valeriana calentada en microondas.</p>
           </div>
         </div>
@@ -546,13 +621,86 @@ function App() {
             ) : comments.length === 0 ? (
               <div className="no-comments">Aún no hay dedicatorias. Sé el primero, valiente.</div>
             ) : (
-              comments.map((comment) => (
-                <div key={comment.id || comment.date} className="comment-item">
-                  <div className="comment-author">{escapeHtml(comment.name)}</div>
-                  <div className="comment-text">{escapeHtml(comment.text)}</div>
-                  <div className="comment-date">{comment.date}</div>
+              comments.map((comment) => {
+                const id = comment.id
+                const isEditing = id && editingId === id
+              
+                return (
+                  <div key={id || comment.date} className="comment-item">
+                    {isEditing ? (
+                      <>
+                        <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                          <label>EDITAR NOMBRE</label>
+                          <input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                          />
+                        </div>
+
+                      <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                        <label>EDITAR MENSAJE</label>
+                        <textarea
+                          rows={3}
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                        />
+                      </div>
+            
+                      <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button
+                          type="button"
+                          className="submit-btn"
+                          disabled={loading || !id}
+                          onClick={() => id && saveEdit(id)}
+                          style={{ padding: '0.6rem 1rem' }}
+                        >
+                          {loading ? 'GUARDANDO...' : 'GUARDAR'}
+                        </button>
+
+                          <button
+                          type="button"
+                          className="submit-btn"
+                          onClick={cancelEdit}
+                          style={{ padding: '0.6rem 1rem', opacity: 0.8 }}
+                        >
+                          CANCELAR
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                      <div className="comment-author">
+                        {escapeHtml(comment.name)} {comment.edited ? <span style={{ color: '#888' }}>(editado)</span> : null}
+                      </div>
+                      <div className="comment-text">{escapeHtml(comment.text)}</div>
+                      <div className="comment-date">{comment.date}</div>
+
+                      {id && (
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+                            <button
+                            type="button"
+                            className="submit-btn"
+                            style={{ padding: '0.55rem 1rem' }}
+                            onClick={() => startEdit(comment)}
+                          >
+                            EDITAR
+                            </button>
+
+                            <button
+                            type="button"
+                            className="submit-btn"
+                            style={{ padding: '0.55rem 1rem', opacity: 0.85 }}
+                            onClick={() => deleteComment(id)}
+                          >
+                            BORRAR
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-              ))
+                )
+              })              
             )}
           </div>
         </div>
@@ -579,7 +727,7 @@ function App() {
       </div>
 
       <div className="disclaimer">
-        <h3>⚠ CLÁUSULA DE LIBERACIÓN ⚠</h3>
+        <h3>⚠ CLÁUSULA DE LIBERACIÓN DE RESPONSABILIDAD⚠</h3>
         <p>
           Al asistir aceptas que:<br /><br />
           • Tu hígado firmó su sentencia<br />
@@ -588,13 +736,14 @@ function App() {
           • Robertosaurio te contará su vida<br />
           • Lo que se pinta, se pinta<br />
           • No existe "mañana"<br />
-          • <strong style={{ color: '#ffff00' }}>LLAMADAS A EXS PROBABLES</strong><br />
-          • <strong style={{ color: '#ff00ff' }}>LLAMADAS A LAS MADRES INMINENTES</strong><br /><br />
+          • <strong style={{ color: '#ffff00' }}>LLAMADAS A EXS </strong><br />
+          • <strong style={{ color: '#ff00ff' }}>LLAMADAS A LAS MADRES</strong><br /><br />
           
           <span className="red-text">
             IMPERDIBLE NO SE HACE RESPONSABLE DE:<br />
             Crisis de los 30, adicciones nuevas, amistades rotas,<br />
             llamadas a exs a las 4 AM, llamadas a tu madre llorando a las 6 AM.
+            Ya somos mayorcitos colegui.
           </span>
         </p>
       </div>
