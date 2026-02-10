@@ -69,6 +69,59 @@ app.post('/api/comments', async (req, res) => {
   }
 });
 
+// PUT - Editar un comentario por id
+app.put('/api/comments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, text } = req.body;
+
+    if (!name || !text) {
+      return res.status(400).json({ error: 'Nombre y texto son requeridos' });
+    }
+
+    const comments = await readComments();
+    const idx = comments.findIndex(c => c.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Comentario no encontrado' });
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('es-ES') + ' ' +
+      now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+    comments[idx] = {
+      ...comments[idx],
+      name: name.trim(),
+      text: text.trim(),
+      date: dateStr,
+      edited: true
+    };
+
+    await saveComments(comments);
+    res.json(comments[idx]);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Error al editar comentario' });
+  }
+});
+
+// DELETE - Borrar un comentario por id
+app.delete('/api/comments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const comments = await readComments();
+
+    const idx = comments.findIndex(c => c.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Comentario no encontrado' });
+
+    comments.splice(idx, 1);
+    await saveComments(comments);
+
+    res.status(204).end();
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Error al borrar comentario' });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
